@@ -3,10 +3,8 @@
 # just for cron use
 # cron example: */15 * * * * /path/to/sip-indicator-management/bin/manage_indicator_intel  2> /path/to/sip-indicator-management/logs/cron.log
 
-# update as needed
-HOME_DIR="/opt/inte/sip-indicator-management"
-
-cd $HOME_DIR || { echo "$HOME_DIR does not exist. exiting."; exit 1;}
+# should be executed from the root of the project.. not the bin directory.
+# ex: "/opt/inte/sip-indicator-management"
 
 # activate venv
 source venv/bin/activate
@@ -15,3 +13,6 @@ export NO_PROXY=".local"
 
 # collect and process events
 ./IndicatorManagement.py tune_intel
+
+echo "cleaning up records"
+bin/cleanup_records
