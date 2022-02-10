@@ -18,19 +18,17 @@ from dateutil.parser import parse
 
 import pysip
 
-from indicator_management.config import CONFIG
+from indicator_management.config import CONFIG, HOME_PATH
 
 class IndicatorManager:
     def __init__(self, config: configparser.ConfigParser=CONFIG, dev=False):
         self.prod = not dev
 
         self.indicators = None
-        # Load the config file.
+        # Save the config file.
         self.config = config
 
         # Start logging.
-        #logging_config_path = os.path.join(HOME_DIR, 'etc', 'logging.ini')
-        #logging.config.fileConfig(logging_config_path)
         self.logger = logging.getLogger('indicator_management.IndicatorManager')
 
         # Connect to SIP.
@@ -47,41 +45,61 @@ class IndicatorManager:
                     verify=self.config['sip_dev']['ca_bundle']
             self.sip = pysip.Client(self.config['sip_dev']['host'], self.config['sip_dev']['api_key'], verify=verify)
 
-        # Get the initial list of In Progress indicators.
-        self.update_in_progress_indicators()
-
         self.logger.info('self.prod = {}'.format(self.prod))
 
+        self._ace_db_cursor = None
+
     def connect_to_ace(self):
+        if isinstance(self._ace_db_cursor, pymysql.cursors.DictCursor):
+            self.logger.debug('Returning existing connection to ACE.')
+            return self._ace_db_cursor
+
         ace_host = self.config['ace_db']['host']
         ace_port = self.config['ace_db']['port']
         ace_user = self.config['ace_db']['user']
         ace_db   = self.config['ace_db']['db']
-        ace_pass = getpass.getpass(prompt='ACE database password for user "{}": '.format(ace_user))
+        ace_pass = self.config['ace_db']['password']
+        #ace_pass = getpass.getpass(prompt='ACE database password for user "{}": '.format(ace_user))
 
         self.logger.debug('Connecting to ACE database {}@{}:{}'.format(ace_user, ace_host, ace_port))
         ssl_settings = {'ca': self.config['ace_db']['ca_bundle']}
         ace_db = pymysql.connect(host=ace_host, port=int(ace_port), user=ace_user, password=ace_pass, database=ace_db, ssl=ssl_settings)
-        return ace_db.cursor(pymysql.cursors.DictCursor)
-
-    def update_in_progress_indicators(self):
-        self.inprogress_indicators = self.sip.get('/api/indicators?status=In Progress&bulk=true')
-        self.logger.info('There are {} In Progress indicators.'.format(len(self.inprogress_indicators)))
+        self._ace_db_cursor = ace_db.cursor(pymysql.cursors.DictCursor)
+        return self._ace_db_cursor
 
     def disable_indicator(self, indicator):
         data = {'status': 'Informational'}
         self.sip.put('/api/indicators/{}'.format(indicator['id']), data)
-        self.logger.info('Disabled indicator "{}" ({})'.format(indicator['value'], indicator['id']))
+        self.logger.debug('Disabled indicator "{}" ({})'.format(indicator['value'], indicator['id']))
+        return True
 
     def enable_indicator(self, indicator):
         data = {'status': 'New'}
         self.sip.put('/api/indicators/{}'.format(indicator['id']), data)
-        self.logger.info('Enabling indicator "{}" ({})'.format(indicator['value'], indicator['id']))
+        self.logger.debug('Enabling indicator "{}" ({})'.format(indicator['value'], indicator['id']))
+        return True
 
-    def find_indicators_to_turn_off(self, tune_instructions: configparser.SectionProxy, dry_run=True):
+    def create_result_recording_dir(self, dir_name):
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        return dir_name
+
+    def record_indicator_tune(self, recording_dir, indicator):
+        fname = f"{indicator['id']}.json"
+        fpath = os.path.join(recording_dir, fname)
+        with open(fpath, 'w') as fp:
+            fp.write(json.dumps(indicator))
+        if os.path.exists(fpath):
+            self.logger.debug('Wrote indicator "{}" to {}'.format(indicator['id'], fpath))
+            return fpath
+        return False
+
+    def find_indicators_to_turn_off(self, tune_instructions: configparser.SectionProxy, dry_run=True, recording_dir=None):
         """Find indicators to turn off based on tuning instructions.
 
         Only turn off indicators if dry_run is True.
+
+        If recording_dir points to a directory that exists, record the indicators we turn off there.
         """
         # Only consider indicators that are at least this old.
         tuning_days = tune_instructions.getint('days') if 'days' in tune_instructions else self.config['default_tune_settings'].getint('days', 90)
@@ -118,11 +136,8 @@ class IndicatorManager:
         query += '&not_tags=' + ','.join(good_tags)
 
         # Search SIP for the indicators in scope.
-        #query = '/api/indicators?&status=Analyzed&modified_before={}&types={}&sources=[OR]{}&not_users={}&not_tags={}'.format(str(min_age), ','.join(bad_indicator_types), ','.join(sources_in_scope), ','.join(good_analysts), ','.join(good_tags))
-        #query = f"/api/indicators?&status=Analyzed&modified_before={min_age}&types={','.join(bad_indicator_types)}&sources=[OR]{','.join(sources_in_scope)}&not_users={','.join(good_analysts)}&not_tags={','.join(good_tags)}"
         self.logger.info(f"querying sip for indicators matching: {query}")
         matching_indicators = self.sip.get(query)
-
         logging.info(f"got {len(matching_indicators)} matching indicators")
 
         # Only consider these ACE alert dispositions.
@@ -198,23 +213,37 @@ class IndicatorManager:
 
         self.logger.info("Turning off these indicators.")
         for indicator in bad_indicators:
+            if os.path.exists(recording_dir):
+                if not self.record_indicator_tune(recording_dir, indicator):
+                    self.logger.warning(f'Failed to write indicator "{indicator["id"]}.json" to {recording_dir}. Not turning off.')
+                    continue
             self.disable_indicator(indicator)
 
-    def turn_off_indicators_according_to_tune_instructions(self, dry_run=True):
+        return True
+
+    def turn_off_indicators_according_to_tune_instructions(self, dry_run=True, record_changes=True):
         """Turn off indicators according to the configured tuning instructions.
         """
         tune_sections = [section for section in self.config.sections() if section.startswith('tune_') and self.config[section].getboolean('enabled')]
         if not tune_sections:
             self.logger.info("No tuning instructions found.")
             return True
+
         for section in tune_sections:
+            recording_dir = None
+            if record_changes:
+                recording_dir = os.path.join(HOME_PATH, "var", "records", f"{datetime.datetime.now().date()}", section)
+                self.create_result_recording_dir(recording_dir) 
+
             self.logger.info(f"Turning off indicators according to {section}")
-            self.find_indicators_to_turn_off(self.config[section], dry_run)
+            self.find_indicators_to_turn_off(self.config[section], dry_run, recording_dir=recording_dir)
 
         return True
 
     def reset_in_progress(self):
-        matching_indicators = self.inprogress_indicators
+        # Get the initial list of In Progress indicators.
+        matching_indicators = self.sip.get('/api/indicators?status=In Progress&bulk=true')
+        self.logger.info(f'There are {len(matching_indicators)} In Progress indicators.')
         for indicator in matching_indicators:
             print(indicator['id'])
             print(indicator['value'])
