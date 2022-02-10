@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# just for cron use
+# cron example: */15 * * * * /path/to/sip-indicator-management/bin/collect_threatfox_iocs 2> /path/to/sip-indicator-management/logs/cron.log
+
+# update as needed
+HOME_DIR="/opt/inte/sip-indicator-management"
+
+cd $HOME_DIR || { echo "$HOME_DIR does not exist. exiting."; exit 1;}
+
+# activate venv
+source venv/bin/activate
+
+export NO_PROXY=".local"
+
+# collect and process events
+./IndicatorManagement.py tune_intel
