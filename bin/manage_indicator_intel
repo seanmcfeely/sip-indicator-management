@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # just for cron use
-# cron example: */15 * * * * /path/to/sip-indicator-management/bin/collect_threatfox_iocs 2> /path/to/sip-indicator-management/logs/cron.log
+# cron example: */15 * * * * /path/to/sip-indicator-management/bin/manage_indicator_intel  2> /path/to/sip-indicator-management/logs/cron.log
 
 # update as needed
 HOME_DIR="/opt/inte/sip-indicator-management"
