@@ -4,7 +4,7 @@
 
 if [ -z "$1" ]
 then
-    echo "usage: turn_indicators_back_on_for var/records/path/to/indicators"
+    echo "usage: turn_indicators_on_for var/records/path/to/indicators"
     exit 1
 fi
 

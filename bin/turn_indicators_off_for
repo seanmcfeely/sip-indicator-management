@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# This script should be executed from the root of the project.
+
+if [ -z "$1" ]
+then
+    echo "usage: turn_indicators_off_for var/records/path/to/indicators"
+    exit 1
+fi
+
+echo "turning all indicators to Informational inside of $1/* "
+cat "$1"/*.json | jq '.id' | while read id; do sipit update $id -s Informational; done
