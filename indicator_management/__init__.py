@@ -124,7 +124,6 @@ class IndicatorManager:
         matching_indicators = self.sip.get(query)
 
         logging.info(f"got {len(matching_indicators)} matching indicators")
-        return True
 
         # Only consider these ACE alert dispositions.
         bad_dispositions = tune_instructions['dispositions'].split(',') if tune_instructions.get('dispositions') else []
