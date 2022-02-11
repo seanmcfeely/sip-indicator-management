@@ -19,7 +19,7 @@ def reset_in_progress(args):
 
 def turn_off_indicators(args):
     im = IndicatorManager(dev=args.dev)
-    im.turn_off_indicators_according_to_tune_instructions(dry_run=args.dry_run)
+    im.turn_off_indicators_according_to_tune_instructions(dry_run=args.dry_run, print_scope_only=args.print_scope_only)
 
 def build_parser(parser: argparse.ArgumentParser):
     """Build the CLI Argument parser."""
@@ -44,6 +44,8 @@ def build_parser(parser: argparse.ArgumentParser):
     find_fp_recon_parser = subparsers.add_parser('tune_intel', help='Find all Analyzed indicators matching tuning configurations and turn them off.')
     find_fp_recon_parser.add_argument('-d', '--dry-run', action='store_true', dest='dry_run', required=False, default=False,
                                      help='Flag to not disable the indicators found.')
+    find_fp_recon_parser.add_argument('--print-scope-only', help="Just print the number of indicators that would be in scope for each tune and exit.",
+                                      action='store_true', dest='print_scope_only', default=False)
     find_fp_recon_parser.set_defaults(func=turn_off_indicators)
 
     return True

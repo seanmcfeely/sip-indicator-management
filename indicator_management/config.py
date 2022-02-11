@@ -46,4 +46,5 @@ CONFIG_SEARCH_PATHS = [
 ]
 
 CONFIG = ConfigParser()
+CONFIG.optionxform = str  # preserve case
 CONFIG.read(CONFIG_SEARCH_PATHS)

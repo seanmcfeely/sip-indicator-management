@@ -8,7 +8,7 @@ HOME_DIR=$(cd "$relative_home_dir" && pwd)
 cd $HOME_DIR || { echo "$HOME_DIR does not exist? exiting."; exit 1;}
 
 #find var/records/ -maxdepth 1 -mindepth 1 -type d -mtime +30  -exec rm -r {} \;
-find var/records/ -maxdepth 1 -mindepth 1 -type d -mtime +30 | while read record_dir;
+find var/records/ -maxdepth 1 -mindepth 1 -type d -mtime +14 | while read record_dir;
 do
     echo "deleting old records in $record_dir/*"
     rm -r "$record_dir"

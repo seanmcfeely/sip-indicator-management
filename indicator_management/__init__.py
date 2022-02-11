@@ -94,7 +94,7 @@ class IndicatorManager:
             return fpath
         return False
 
-    def find_indicators_to_turn_off(self, tune_instructions: configparser.SectionProxy, dry_run=True, recording_dir=None):
+    def find_indicators_to_turn_off(self, tune_instructions: configparser.SectionProxy, dry_run=True, recording_dir=None, print_scope_only=False):
         """Find indicators to turn off based on tuning instructions.
 
         Only turn off indicators if dry_run is True.
@@ -138,7 +138,12 @@ class IndicatorManager:
         # Search SIP for the indicators in scope.
         self.logger.info(f"querying sip for indicators matching: {query}")
         matching_indicators = self.sip.get(query)
-        logging.info(f"got {len(matching_indicators)} matching indicators")
+        self.logger.info(f"got {len(matching_indicators)} matching indicators")
+
+        if print_scope_only:
+            print(f"\nAn execution of this tuning config would have {len(matching_indicators)} indicators in scope for being potentially turned off.")
+            print()
+            return True
 
         # Only consider these ACE alert dispositions.
         bad_dispositions = tune_instructions['dispositions'].split(',') if tune_instructions.get('dispositions') else []
@@ -221,7 +226,7 @@ class IndicatorManager:
 
         return True
 
-    def turn_off_indicators_according_to_tune_instructions(self, dry_run=True, record_changes=True):
+    def turn_off_indicators_according_to_tune_instructions(self, dry_run=True, record_changes=True, print_scope_only=False):
         """Turn off indicators according to the configured tuning instructions.
         """
         tune_sections = [section for section in self.config.sections() if section.startswith('tune_') and self.config[section].getboolean('enabled')]
@@ -236,7 +241,7 @@ class IndicatorManager:
                 self.create_result_recording_dir(recording_dir) 
 
             self.logger.info(f"Turning off indicators according to {section}")
-            self.find_indicators_to_turn_off(self.config[section], dry_run, recording_dir=recording_dir)
+            self.find_indicators_to_turn_off(self.config[section], dry_run, recording_dir=recording_dir, print_scope_only=print_scope_only)
 
         return True
 
