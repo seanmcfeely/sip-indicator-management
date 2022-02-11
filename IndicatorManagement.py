@@ -3,10 +3,9 @@
 import os
 import argparse
 import coloredlogs
-import datetime
 import logging
+import logging.config
 import sys
-import json
 
 from indicator_management import IndicatorManager
 
@@ -26,6 +25,13 @@ def build_parser(parser: argparse.ArgumentParser):
     """Build the CLI Argument parser."""
 
     parser.add_argument("-d", "--debug", default=False, action="store_true", help="Turn on debug logging.")
+    parser.add_argument(
+        "--logging-config",
+        required=False,
+        default="etc/logging.ini",
+        dest="logging_config",
+        help="Path to logging configuration file.  Defaults to etc/logging.ini",
+    )
 
     parser.add_argument('--dev', action='store_true', dest='dev', required=False, default=False,
         help='Interact with dev SIP instead of production.')
@@ -46,10 +52,6 @@ def build_parser(parser: argparse.ArgumentParser):
 def main(args=None):
     """The main CLI entry point."""
 
-    # configure logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)s] %(message)s")
-    coloredlogs.install(level="INFO", logger=LOGGER)
-
     if not args:
         args = sys.argv[1:]
 
@@ -57,8 +59,20 @@ def main(args=None):
     build_parser(parser)
     args = parser.parse_args(args)
 
+    # initialize logging
+    try:
+        logging.config.fileConfig(args.logging_config)
+    except Exception as e:
+        message = f"ERROR: unable to load logging config from {args.logging_config}: {e}"
+        sys.stderr.write(message + "\n")
+        LOGGER.error(message)
+        return False
+
+    # used colored logs for the console
+    format = "%(asctime)s - %(name)s - [%(levelname)s] %(message)s"
+    coloredlogs.install(level="INFO", logger=LOGGER, fmt=format)
     if args.debug:
-        coloredlogs.install(level="DEBUG", logger=LOGGER)
+        coloredlogs.install(level="DEBUG", logger=LOGGER, fmt=format)
     
     args.func(args)
 

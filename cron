@@ -1,0 +1,1 @@
+14 2 * * * /opt/intel/sip-indicator-management/bin/manage_indicator_intel 2> /opt/intel/sip-indicator-management/logs/cron.log

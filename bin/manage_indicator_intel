@@ -3,8 +3,12 @@
 # just for cron use
 # cron example: */15 * * * * /path/to/sip-indicator-management/bin/manage_indicator_intel  2> /path/to/sip-indicator-management/logs/cron.log
 
-# should be executed from the root of the project.. not the bin directory.
-# ex: "/opt/inte/sip-indicator-management"
+# Figure out the home directory and execute from it.
+script_path=$(dirname "$0")
+relative_home_dir=$(dirname "$script_path")
+HOME_DIR=$(cd "$relative_home_dir" && pwd)
+
+cd $HOME_DIR || { echo "$HOME_DIR does not exist? exiting."; exit 1;}
 
 # activate venv
 source venv/bin/activate

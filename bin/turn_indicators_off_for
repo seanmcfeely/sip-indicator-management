@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
-# This script should be executed from the root of the project.
+# Figure out the home directory and execute from it.
+script_path=$(dirname "$0")
+relative_home_dir=$(dirname "$script_path")
+HOME_DIR=$(cd "$relative_home_dir" && pwd)
+
+cd $HOME_DIR || { echo "$HOME_DIR does not exist? exiting."; exit 1;}
 
 if [ -z "$1" ]
 then
