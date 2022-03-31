@@ -3,6 +3,8 @@ scratch/
 .DS_Store
 .vscode/
 
+logs/
+
 # project configs
 indicator_management/etc/config.ini 
 etc/config.ini
